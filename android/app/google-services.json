@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "800034427593",
+    "project_id": "push-notification-ea387",
+    "storage_bucket": "push-notification-ea387.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:800034427593:android:b32cf0e05823cf1adbf318",
+        "android_client_info": {
+          "package_name": "com.example.turismo_notifications"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6w6muN1a2XhdICfJiYbWLtMwNXBSf3os"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
