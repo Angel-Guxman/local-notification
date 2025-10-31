@@ -28,7 +28,6 @@ class HomePage extends ConsumerWidget {
                   .showLocal(
                     title: 'Novedad turística',
                     body: 'Nueva promo en Quintana Roo 🌴',
-                    payload: '/promo',
                   );
               // Cambio: usar el método increment() del notifier
               ref.read(badgeCountProvider.notifier).increment();
@@ -51,7 +50,6 @@ class HomePage extends ConsumerWidget {
                   .showLocal(
                     title: 'Explora ${d['nombre']}',
                     body: 'Descubre ${d['nombre']} (${d['tipo']})',
-                    payload: '/destino/${d['nombre']}',
                   );
               // Cambio: usar el método increment() del notifier
               ref.read(badgeCountProvider.notifier).increment();

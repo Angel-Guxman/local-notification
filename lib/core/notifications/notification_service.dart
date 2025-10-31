@@ -1,15 +1,21 @@
+import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'dart:io' show Platform;
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin _local =
       FlutterLocalNotificationsPlugin();
 
-  Future<void> init() async {
-    // Configuración de Android
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+  static const _channelId = 'default_channel_v2';
+  static const _channelName = 'General';
+  static const _channelDesc = 'Canal de notificaciones generales';
 
-    // Configuración de iOS
+  /// Inicializa el servicio de notificaciones locales
+  Future<void> init() async {
+    const androidInit = AndroidInitializationSettings(
+      '@drawable/ic_stat_notify',
+    );
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -18,32 +24,15 @@ class NotificationService {
 
     const settings = InitializationSettings(android: androidInit, iOS: iosInit);
 
-    // Inicializar el plugin
-    await _local.initialize(
-      settings,
-      onDidReceiveNotificationResponse: (details) {
-        print('Notificación tocada: ${details.payload}');
-      },
-    );
-
-    // Solicitar permisos en Android 13+
-    if (Platform.isAndroid) {
-      final androidImplementation = _local
-          .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >();
-
-      await androidImplementation?.requestNotificationsPermission();
-    }
+    await _local.initialize(settings);
 
     // Crear canal de notificaciones para Android
     const channel = AndroidNotificationChannel(
-      'default_channel',
-      'General',
-      description: 'Canal de notificaciones generales',
+      _channelId,
+      _channelName,
+      description: _channelDesc,
       importance: Importance.high,
       playSound: true,
-      enableVibration: true,
     );
 
     await _local
@@ -51,24 +40,17 @@ class NotificationService {
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.createNotificationChannel(channel);
-
-    print('✅ Servicio de notificaciones inicializado');
   }
 
-  Future<void> showLocal({
-    required String title,
-    required String body,
-    String? payload,
-  }) async {
+  /// Muestra una notificación local simple
+  Future<void> showLocal({required String title, required String body}) async {
     const androidDetails = AndroidNotificationDetails(
-      'default_channel',
-      'General',
-      channelDescription: 'Canal de notificaciones generales',
+      _channelId,
+      _channelName,
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      icon: '@mipmap/ic_launcher',
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -77,19 +59,79 @@ class NotificationService {
       presentSound: true,
     );
 
-    final id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await _local.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+    );
+  }
 
+  /// Muestra notificación con imagen remota (Big Picture)
+  /// Descarga la imagen primero y luego la muestra
+  Future<void> showBigPicture({
+    required String title,
+    required String body,
+    required String imageUrl,
+  }) async {
     try {
+      // Descargar la imagen
+      final response = await http.get(Uri.parse(imageUrl));
+
+      if (response.statusCode != 200) {
+        throw Exception('Error al descargar imagen: ${response.statusCode}');
+      }
+
+      // Guardar en directorio temporal
+      final dir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${dir.path}/notification_image_$timestamp.jpg');
+      await file.writeAsBytes(response.bodyBytes);
+
+      // Crear notificación con Big Picture
+      final bigPicture = BigPictureStyleInformation(
+        FilePathAndroidBitmap(file.path),
+        contentTitle: title,
+        summaryText: body,
+        hideExpandedLargeIcon: false,
+      );
+
+      final androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        styleInformation: bigPicture,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        largeIcon: FilePathAndroidBitmap(file.path),
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
       await _local.show(
-        id,
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
         title,
         body,
-        const NotificationDetails(android: androidDetails, iOS: iosDetails),
-        payload: payload,
+        NotificationDetails(android: androidDetails, iOS: iosDetails),
       );
-      print('✅ Notificación mostrada: $title');
     } catch (e) {
-      print('❌ Error al mostrar notificación: $e');
+      // Si falla la descarga, mostrar notificación simple
+      print('❌ Error al mostrar Big Picture: $e');
+      await showLocal(title: title, body: body);
     }
+  }
+
+  /// Cancela todas las notificaciones
+  Future<void> cancelAll() async {
+    await _local.cancelAll();
+  }
+
+  /// Cancela una notificación específica por ID
+  Future<void> cancel(int id) async {
+    await _local.cancel(id);
   }
 }
